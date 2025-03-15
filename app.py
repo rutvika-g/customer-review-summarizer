@@ -4,25 +4,33 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Bart
 import streamlit as st
 from models.summarizer import summarize_review  # Import summarize function
 
-# Sentiment analysis model
-sentiment_model_name = "distilbert-base-uncased-finetuned-sst-2-english"
-sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
-sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
-
-# Summarization model (using BartForConditionalGeneration for summarization)
-summarization_model_name = "sshleifer/distilbart-cnn-12-6"
-summarization_tokenizer = AutoTokenizer.from_pretrained(summarization_model_name)
-summarization_model = BartForConditionalGeneration.from_pretrained(summarization_model_name)
-
-# Create sentiment analysis pipeline
-sentiment_pipeline = pipeline("sentiment-analysis", model=sentiment_model, tokenizer=sentiment_tokenizer)
-
-# Create summarization pipeline
-summarization_pipeline = pipeline("summarization", model=summarization_model, tokenizer=summarization_tokenizer)
-
 # Streamlit Web App
 st.title("Customer Feedback Analysis Tool")
 st.write("Analyze customer reviews and view sentiment trends!")
+
+# Sentiment analysis model (Lazy Loading)
+sentiment_model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+sentiment_tokenizer = None
+sentiment_model = None
+sentiment_pipeline = None
+
+# Summarization model (Lazy Loading)
+summarization_model_name = "sshleifer/distilbart-cnn-12-6"
+summarization_tokenizer = None
+summarization_model = None
+summarization_pipeline = None
+
+def load_sentiment_model():
+    global sentiment_tokenizer, sentiment_model, sentiment_pipeline
+    sentiment_tokenizer = AutoTokenizer.from_pretrained(sentiment_model_name)
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(sentiment_model_name)
+    sentiment_pipeline = pipeline("sentiment-analysis", model=sentiment_model, tokenizer=sentiment_tokenizer)
+
+def load_summarization_model():
+    global summarization_tokenizer, summarization_model, summarization_pipeline
+    summarization_tokenizer = AutoTokenizer.from_pretrained(summarization_model_name)
+    summarization_model = BartForConditionalGeneration.from_pretrained(summarization_model_name)
+    summarization_pipeline = pipeline("summarization", model=summarization_model, tokenizer=summarization_tokenizer)
 
 # File Upload
 uploaded_file = st.file_uploader("Upload a CSV file with reviews", type=["csv"])
@@ -39,6 +47,12 @@ if uploaded_file:
 
         st.write("### Analysis Results:")
         for review in data['review']:
+            # Load models only when needed
+            if sentiment_pipeline is None:
+                load_sentiment_model()
+            if summarization_pipeline is None:
+                load_summarization_model()
+
             # Sentiment Analysis
             sentiment_result = sentiment_pipeline(review)[0]
             sentiment = sentiment_result['label']
